@@ -1,0 +1,323 @@
+---
+title: "Airbnb"
+author: "Luke O'Connell & Yvonne Quach"
+output:
+  html_document:
+    df_print: paged
+  html_notebook: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+
+# Please leave this code chunk as is. It makes some slight formatting changes to alter the output to be more aesthetically pleasing. 
+
+# Change the number in set seed to your own favorite number
+set.seed(1818)
+options(width=70)
+options(scipen=99)
+
+
+# this sets text outputted in code chunks to small
+
+library(knitr)
+
+opts_chunk$set(tidy.opts=list(width.wrap=50),tidy=TRUE, size = "vsmall")  
+opts_chunk$set(message = FALSE,                                          
+               warning = FALSE,
+               # "caching" stores objects in code chunks and only rewrites if you change things
+               cache = TRUE,                               
+               # automatically downloads dependency files
+               autodep = TRUE,
+               # 
+               cache.comments = FALSE,
+               # 
+               collapse = TRUE,
+               # change fig.width and fig.height to change the code height and width by default
+               fig.width = 5.5,  
+               fig.height = 4.5,
+               fig.align='center')
+
+
+```
+
+```{r setup-2}
+
+# Always print this out before your assignment
+sessionInfo()
+getwd()
+
+```
+
+
+
+```{r}
+# Load required libraries
+library(dplyr)
+library(tidyr)
+library(tidyverse)
+library(randomForest)
+library(caret)
+library(stringr)
+library(forcats)
+
+# Load the dataset
+
+#Yvonne, here are your load instructions: 
+#LA_listings <- read_csv("LA_listings.csv", show_col_types = FALSE)
+
+#Luke, here are your load instructions: 
+LA_listings <- read_csv("/Users/leo/Desktop/BUS659/project/LA_listings.csv", show_col_types = FALSE)
+```
+
+Start: Price optimization
+
+Since there are 3 objectives, all of which will require testing, training, and likely creation of similiar data sets, all data groups created for price optimization will begin with "opt_". 
+
+```{r}
+
+#Select relevant columns and clean them for modeling
+opt_LA_price <- LA_listings %>% 
+  select(price, room_type, neighbourhood_cleansed, number_of_reviews, review_scores_rating, minimum_nights, availability_365, latitude, longitude, amenities, bedrooms, bathrooms, beds) %>% 
+  mutate(
+    
+    # Convert price string to numeric
+    price = as.numeric(gsub("[$,]", "", price)),
+    
+    # Convert categorical variables to factors
+    room_type = as.factor(room_type),
+    neighbourhood_cleansed = as.factor(neighbourhood_cleansed),
+    
+    #Convert bedroom/bathroom/bed counts to numeric
+    bedrooms = as.numeric(bedrooms),
+    bathrooms = as.numeric(bathrooms),
+    beds = as.numeric(beds),
+    
+    # Create a new numeric feature: count of amenities
+    amenities_count = str_count(amenities, ",") +1,
+    
+    #Price per bedroom (if bedroom is not 0), indicates price based on listing size
+    price_per_bedroom = ifelse(bedrooms > 0, price / bedrooms, NA),
+    
+     #Price per bed, indicates price based on listing size
+    price_per_bed = ifelse(beds > 0, price / beds, NA),
+    
+    #Indicator if listing is entire home, for price segmentation
+    is_entire_home = ifelse(room_type == "Entire home/apt", 1, 0),
+    
+    #Log-transformed price to address skewness for sensitive distributions
+    log_price = log1p(price)
+  ) %>% 
+  
+  # Drop any rows that have missing values in the selected columns
+  drop_na() %>% 
+  
+  # Drop the raw amenities text column 
+  select(-amenities)
+  
+# Random Forest cannot handle factors with more than 53 levels, so we group smaller neighborhoods into an "Other" category
+opt_top_neighborhoods <- opt_LA_price %>% 
+  count(neighbourhood_cleansed, sort = TRUE) %>% 
+  slice(1:10) %>% 
+  pull(neighbourhood_cleansed) %>% 
+  as.character()
+
+opt_LA_price <- opt_LA_price %>% 
+  mutate(neighbourhood_cleansed = fct_other(neighbourhood_cleansed, keep = opt_top_neighborhoods))
+```
+
+
+```{r}
+
+# Split the data into training and testing sets
+
+# Load rsample
+library(rsample)
+
+# Use rsample's initial_split() to create an 80/20 train/test split
+set.seed(123)
+opt_split <- initial_split(opt_LA_price, prop = 0.8)
+    
+# Extract training and testing sets
+opt_LA_train <- training(opt_split)
+opt_LA_test <- testing(opt_split)
+ 
+```
+
+```{r}
+# Train the Random Forest model
+
+# Fit a random forrest regression model to predict nightly price
+opt_rf_model <- randomForest(
+  
+  # Predice price using all other variables
+  price ~ .,
+  
+  # Use training data only
+  data = opt_LA_train,
+  
+  # Number of trees in the forest
+  ntree = 100,
+  
+  # Track feature importance for interpretation
+  importance = TRUE
+)
+
+```
+
+
+```{r}
+
+# Predict on the test data
+predictions <- predict(opt_rf_model, newdata = opt_LA_test)
+
+# Calculate performance metrics
+mae <- mean(abs(predictions - opt_LA_test$price))
+rmse <- sqrt(mean((predictions - opt_LA_test$price)^2))
+r2 <- cor(predictions, opt_LA_test$price)^2
+
+# Print the results
+cat("MAE:", round(mae, 2), "\n")
+cat("RMSE:", round(rmse, 2), "\n")
+cat("R2:", round(r2, 3), "\n")
+
+```
+MAE: 4.05 (much lower error)
+RMSE: 83.49 (lower is better... not perfect, but better)
+R2: 0.975 (explains 0.415 more of the variance)
+
+```{r}
+
+#The new MAE is $69.52, so on average, our predictions are off by $70 per listing, which is a slight improvement from before. The RMSE is $273.42, so our model still has some large errors on more expensive listings, but slightly better than before. The r-squared is 0.587, which means our model now explains 59% of the variance in Airbnb prices, a slight improvement from 56%. 
+```
+
+End: Price optimization
+
+Start: Revenue forecasting... Estimate annual revenue per listing using reported attributes of each listing for hosts to make informed decisions about setting prices and availability on their properties. 
+
+Since there are 3 objectives, all of which will require testing, training, and likely creation of similar data sets, all data groups created for price optimization will begin with "rev_". 
+
+```{r}
+
+# Select relevant columns and clean them for modeling
+
+rev_LA_avail <- LA_listings %>%
+  select(price, room_type, neighbourhood_cleansed, number_of_reviews, review_scores_rating,
+         minimum_nights, availability_365, latitude, longitude, amenities,
+         bedrooms, bathrooms, beds) %>%
+  mutate(
+    # Convert price string to numeric
+    price = as.numeric(gsub("[$,]", "", price)),
+    
+    # Create proxy, allowing number of reviews to stand in for bookings if no booking data is available
+    proxy_bookings = number_of_reviews,
+    
+    # Create revenue variable and log-transformed revenue
+    revenue = price * proxy_bookings,
+    log_revenue = log1p(revenue),
+    
+    # Isolate availability by singular days
+    availability_rate = availability_365 / 365,
+    
+    # Convert categorical variables to factors
+    room_type = as.factor(room_type),
+    neighbourhood_cleansed = as.factor(neighbourhood_cleansed),
+    
+    # Convert bedroom/bathroom/bed counts to numeric
+    bedrooms = as.numeric(bedrooms),
+    bathrooms = as.numeric(bathrooms),
+    beds = as.numeric(beds),
+    
+    # Create a new numeric feature: count of amenities
+    amenities_count = str_count(amenities, ",") + 1
+  ) %>%
+  select(-amenities) %>%  # Drop raw amenities text
+  drop_na()
+```
+
+```{r}
+
+# Create an 80/20 train/test split
+
+rev_split <- initial_split(rev_LA_avail, prop = 0.8)
+
+# Extract training and testing sets
+rev_train <- training(rev_split)
+rev_test  <- testing(rev_split)
+
+```
+
+```{r}
+
+# Load additional required libraries for Elastic Net
+
+library(glmnet)
+library(glmnetUtils)
+
+# We did not learn model.matrix in class, however, it was covered in BDS's section on regression and model selection in chapter 2
+
+# Create revenue training and testing matrices
+rev_train_matrix <- model.matrix(~ . -1, data = rev_train %>% select(-log_revenue))
+rev_train_target <- rev_train$log_revenue
+
+rev_test_matrix <- model.matrix(~ . -1, data = rev_test %>% select(-log_revenue))
+rev_test_target <- rev_test$log_revenue
+
+```
+
+```{r}
+
+# Fit by using cross-validation across multiple alpha values
+set.seed(123)
+
+enet_mod <- cva.glmnet(
+  x = rev_train_matrix,
+  y = rev_train_target,
+  alpha = seq(0, 1, length = 11),
+  family = "gaussian"
+)
+
+# I pulled this from regularization slide page 55. Helper function to find the alpha with lowest cross-validation error
+rev_get_alpha <- function(fit) {
+  alpha <- fit$alpha
+  error <- sapply(fit$modlist, function(mod) {min(mod$cvm)})
+  alpha[which.min(error)]
+}
+
+# Helper function to extract alpha, lambda.min, lambda.1se, and error
+rev_get_model_params <- function(fit) {
+  alpha <- fit$alpha
+  lambdaMin <- sapply(fit$modlist, `[[`, "lambda.min")
+  lambdaSE <- sapply(fit$modlist, `[[`, "lambda.1se")
+  error <- sapply(fit$modlist, function(mod) {min(mod$cvm)})
+  best <- which.min(error)
+  data.frame(alpha = alpha[best], lambdaMin = lambdaMin[best], lambdaSE = lambdaSE[best], error = error[best])
+}
+
+# Identify best alpha and lambda values
+rev_best_alpha <- rev_get_alpha(enet_mod)
+print(paste("Best alpha:", rev_best_alpha))
+
+rev_model_params <- rev_get_model_params(enet_mod)
+print(rev_model_params)
+
+# Extract best model using optimal alpha
+rev_best_model <- enet_mod$modlist[[which(enet_mod$alpha == rev_best_alpha)]]
+
+# Predict log revenue using the best model and optimal lambda
+rev_enet_predictions <- predict(
+  rev_best_model,
+  s = rev_model_params$lambdaMin,
+  newx = rev_test_matrix
+)
+
+# Evaluate model performance on the test set
+rev_enet_mae <- mean(abs(rev_enet_predictions - rev_test_target))
+rev_enet_rmse <- sqrt(mean((rev_enet_predictions - rev_test_target)^2))
+rev_enet_r2 <- cor(rev_enet_predictions, rev_test_target)^2
+
+# Output performance results
+cat("Elastic Net (best alpha =", rev_best_alpha, ") - MAE:", round(rev_enet_mae, 2), "\n")
+cat("Elastic Net (best alpha =", rev_best_alpha, ") - RMSE:", round(rev_enet_rmse, 2), "\n")
+cat("Elastic Net (best alpha =", rev_best_alpha, ") - R²:", round(rev_enet_r2, 3), "\n")
+```
