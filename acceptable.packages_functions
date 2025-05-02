@@ -1,0 +1,73 @@
+BDS- Line 4-36
+R4E: Line 38-69
+
+BDS:
+Pages 56–76 (Regression and Model Selection)
+* Packages:
+    * gamlr – Lasso regression and path plots
+    * glmnet – Elastic net and Lasso
+    * Matrix – Sparse matrix support
+* Functions:
+    * glm, lm – regression modeling
+    * model.matrix – design matrix creation
+    * plot, step – visualization and stepwise selection
+    * deviance – model fit measurement
+    * sparseMatrix – from Matrix package
+    * AIC, BIC – model selection criteria 
+Pages 84–112 (Regularization and Classification)
+* Packages:
+    * gamlr, glmnet
+    * class – for k-NN classification
+* Functions:
+    * coef, predict – extracting coefficients and making predictions
+    * knn – k-nearest neighbors classification
+    * scale – standardization
+    * softmax – used in multinomial models
+    * summary – model summary output
+Pages 276–294 (Trees, Forests, and Bayesian Models)
+* Packages:
+    * tree – basic decision trees
+    * rpart – recursive partitioning
+    * causalTree – causal trees for treatment effect heterogeneity
+* Functions:
+    * prune.tree – tree pruning
+    * predict, coef, loss – prediction, coefficients, and evaluation
+    * orthoLTE – orthogonal lasso treatment effect modeling
+    * jmleGP – Gaussian process modeling
+
+R4E
+Chapter 4 – Basics of R
+* Functions: mean(), sum(), as.Date(), length(), nchar(), is.na(), apropos()
+* Operators as functions: ?'+, ?'*', ?'=='
+* Concepts: data types, factor levels, coercion, missing data (NA, NULL).
+
+Chapter 7 – Statistical Graphics
+* Packages: ggplot2
+* Functions:
+    * Base R: plot(), hist(), boxplot()
+    * ggplot2: ggplot(), aes(), geom_point(), geom_bar(), geom_histogram(), geom_boxplot(), geom_line(), facet_wrap(), labs(), scale_x_continuous(), scale_y_continuous(), theme(), scale_color_discrete().
+
+Chapter 12 – Faster Group Manipulation with dplyr
+* Packages: dplyr, magrittr
+* Functions: select(), filter(), slice(), mutate(), summarize(), group_by(), arrange(), do(), tbl(), %>%.
+
+Chapter 15 – Reshaping Data in the Tidyverse
+* Packages: dplyr, tidyr
+* Functions: bind_rows(), bind_cols(), left_join(), right_join(), full_join(), inner_join(), separate(), unite(), gather(), spread().
+
+Chapter 19 – Linear Models
+* Functions: lm(), summary(), coef(), predict(), resid(), anova(), confint()
+* Concepts: simple and multiple linear regression, residual plots, coefficients.
+
+Chapter 20 – Generalized Linear Models
+* Functions: glm()
+* Concepts: logistic regression, Poisson regression, survival analysis (possibly survfit() from survival package though not explicitly named), family=binomial, model fit evaluation.
+
+Chapter 22 – Regularization and Shrinkage
+* Packages: glmnet
+* Functions: glmnet(), cv.glmnet()
+* Concepts: Lasso, Ridge, Elastic Net, cross-validation, lambda tuning.
+
+Chapter 23 – Nonlinear Models
+* Functions/Packages: nls(), gam() (likely from mgcv), randomForest(), rpart()
+* Concepts: generalized additive models (GAM), nonlinear least squares, decision trees, random forests, boosted trees.
