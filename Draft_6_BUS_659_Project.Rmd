@@ -1,5 +1,5 @@
 ---
-title: "Airbnb Data Science Project"
+title: "Airbnb Data Science Project 1"
 author: "Luke O'Connell and Yvonne Quach"
 date: "May 14, 2025"
 output:
@@ -22,6 +22,7 @@ This project applies machine learning techniques to Airbnb listings in Los Angel
 3. **Market Segmentation** – Cluster listings into distinct market segments to inform business strategies, marketing efforts, and pricing tiers.
 
 The insights aim to support both hosts and platforms in making more data-informed decisions that enhance profitability and customer satisfaction.
+
 
 ## Dataset Overview
 
@@ -161,7 +162,7 @@ opt_LA_price <- opt_LA_price %>%
 
 # Boxplot of price by room type
 ggplot(opt_LA_price, aes(x = room_type, y = price)) +
-  geom_boxplot(fill = "lightblue") +
+  geom_boxplot(fill = "steelblue") +
   labs(title = "Price Distribution by Room Type", x = "Room Type", y = "Price") +
   theme_minimal()
 
@@ -198,7 +199,7 @@ ggplot(opt_LA_price, aes(x = price)) +
   labs(title = "Distribution of Price (Raw)", x = "Price", y = "Count")
 
 ggplot(opt_LA_price, aes(x = log_price)) +
-  geom_histogram(bins = 50, fill = "darkgreen") +
+  geom_histogram(bins = 50, fill = "steelblue") +
   labs(title = "Distribution of Price (Log-Transformed)", x = "Log(Price + 1)", y = "Count")
 
 ```
@@ -252,13 +253,12 @@ cat("R2:", round(r2, 3), "\n")
 # Actual vs Predicted price scatterplot
 ggplot(data.frame(actual = opt_LA_test$price, predicted = predictions), aes(x = actual, y = predicted)) +
   geom_point(alpha = 0.4) +
-  geom_abline(slope = 1, intercept = 0, color = "red", linetype = "dashed") +
+  geom_abline(slope = 1, intercept = 0, color = "steelblue", linetype = "dashed") +
   labs(title = "Actual vs Predicted Prices", x = "Actual Price", y = "Predicted Price") +
   theme_minimal()
 
 ```
 
-### Another modeling option?
 
 ## Model Evaluation
 
@@ -277,6 +277,73 @@ Further training can be done to address the skewed RMSE, potentially isolating t
 Since this model explains 97.5% of variance in pricing, this can provide information for hosts to set competitive prices based on location or attributes rather than intuition. This will be espicially valuable for hosts introducing new listings who can more imediately evaluate their property instead of trial and error. Airbnb can act on this data by recommending nighltly prices to hosts that align with market trends.
 
 This also may encourage hosts to introduce new featrues to their rentals, if they are looking for an opportunity to charge more or become competitive. Airbnb can offer an ROI calculator for upgrades to their properties, such as expanding amenties or adding a couch to increase capacity, and the return on that investment. 
+
+## Price Optimization - Linear Regression Model
+
+Since there are 3 objectives, all of which will require testing, training, and likely creation of similar data sets, all data groups created for linear regression price optimization will begin with "lm_
+
+```{r}
+
+# Use the cleaned dataset from earlier steps 
+# Assuming opt_LA_price is already cleaned and preprocessed
+
+# Step 1: Train/test split
+set.seed(123)
+
+lm_sample_index <- sample(nrow(opt_LA_price), 0.8 * nrow(opt_LA_price))
+lm_opt_train <- opt_LA_price[lm_sample_index,]
+lm_opt_test <- opt_LA_price[-lm_sample_index,]
+ 
+```
+
+
+
+```{r}
+
+# Step 2: Fit a basic linear regression model
+lm_model <- lm(price ~ room_type + neighbourhood_cleansed + number_of_reviews + review_scores_rating + minimum_nights + availability_365 + latitude + longitude + bedrooms + bathrooms + beds + amenities_count + price_per_bed + is_entire_home, 
+               data = lm_opt_train)
+ 
+```
+
+
+```{r}
+
+# Step 3: Predict and evaluate
+
+lm_preds <- predict(lm_model, newdata = lm_opt_test)
+ 
+```
+
+
+```{r}
+
+# Step 4: Evaluate
+
+actual <- lm_opt_test$price
+mae <- mean(abs(actual - lm_preds))
+rmse <- sqrt(mean((actual - lm_preds)^2))
+r2 <- cor(actual, lm_preds)^2
+
+cat("MAE:", round(mae, 2), "\n")
+cat("RSME:", round(rmse,2), "\n")
+cat("R-squared:", round(r2, 3), "\n")
+```
+
+# Model Evaluation
+
+MAE = $93.71. On average, our predicted prices are off by $93.71. This is a moderate error for price prediction. 
+
+RMSE = $283.63. There are some large prediction errors(possibly due to outliers or high-price listings). RMSE is more sensitive to these than MAE.
+
+R-Squared = 0.59. The model explains 59% of the variation in listing prices. That means over half of the pricing behavior is captured by our input features, but 41% is unexplained. 
+# Comparison to Random Forest
+Random Forest Results:
+MAE = $4.05
+RMSE = $83.49
+R-Squared = 0.975
+
+Random Forest clearly outperforms linear regression in both accuracy and predictive power. Linear regression is easier to interpret, but sacrifices precision. The gap in RMSE suggests that linear regression struggles with more complex price dynamics - epsecially for high-end listings or where non-linear relationships exist. 
 
 ---
 
@@ -327,8 +394,8 @@ rev_LA_avail <- LA_listings %>%
   drop_na()
 
 par(mfrow = c(1, 2))
-hist(rev_LA_avail$revenue, main = "Raw Revenue", xlab = "Revenue", breaks = 50, col = "lightblue")
-hist(rev_LA_avail$log_revenue, main = "Log Revenue", xlab = "Log(1 + Revenue)", breaks = 50, col = "lightgreen")
+hist(rev_LA_avail$revenue, main = "Raw Revenue", xlab = "Revenue", breaks = 50, col = "steelblue")
+hist(rev_LA_avail$log_revenue, main = "Log Revenue", xlab = "Log(1 + Revenue)", breaks = 50, col = "steelblue")
 
 ```
 
@@ -343,7 +410,7 @@ rev_train <- training(rev_split)
 rev_test  <- testing(rev_split)
 
 boxplot(log_revenue ~ room_type, data = rev_LA_avail,
-        col = "lightgray", main = "Log Revenue by Room Type",
+        col = "steelblue", main = "Log Revenue by Room Type",
         xlab = "Room Type", ylab = "Log(Revenue + 1)")
 
 ```
@@ -425,7 +492,7 @@ cat("Elastic Net (best alpha =", rev_best_alpha, ") - R²:", round(rev_enet_r2, 
 
 plot(rev_test_target, rev_enet_predictions, 
      xlab = "Actual Log Revenue", ylab = "Predicted Log Revenue",
-     main = "Elastic Net Predictions", col = "darkgreen", pch = 20)
+     main = "Elastic Net Predictions", col = "steelblue", pch = 20)
 abline(0, 1, col = "red", lwd = 2)
 
 ```
@@ -443,6 +510,66 @@ We may also want to consider removing log values... If we want to see actual dol
 End: Revenue forecasting
 
 ---
+
+# Price Optimization
+
+Start: Price optimization... Predict optimal nightly rates based on listing’s characteristics, like room type, amenities, reviews, and location.
+
+Since there are 3 objectives, all of which will require testing, training, and likely creation of similiar data sets, all data groups created for price optimization will begin with "opt_". 
+
+## Data Preparation
+
+```{r}
+
+#Select relevant columns and clean them for modeling
+opt_LA_price <- LA_listings %>% 
+  select(price, room_type, neighbourhood_cleansed, number_of_reviews, review_scores_rating, minimum_nights, availability_365, latitude, longitude, amenities, bedrooms, bathrooms, beds) %>% 
+  mutate(
+    
+    # Convert price string to numeric
+    price = as.numeric(gsub("[$,]", "", price)),
+    
+    # Convert categorical variables to factors
+    room_type = as.factor(room_type),
+    neighbourhood_cleansed = as.factor(neighbourhood_cleansed),
+    
+    #Convert bedroom/bathroom/bed counts to numeric
+    bedrooms = as.numeric(bedrooms),
+    bathrooms = as.numeric(bathrooms),
+    beds = as.numeric(beds),
+    
+    # Create a new numeric feature: count of amenities
+    amenities_count = str_count(amenities, ",") +1,
+    
+    #Price per bedroom (if bedroom is not 0), indicates price based on listing size
+    price_per_bedroom = ifelse(bedrooms > 0, price / bedrooms, NA),
+    
+     #Price per bed, indicates price based on listing size
+    price_per_bed = ifelse(beds > 0, price / beds, NA),
+    
+    #Indicator if listing is entire home, for price segmentation
+    is_entire_home = ifelse(room_type == "Entire home/apt", 1, 0),
+    
+    #Log-transformed price to address skewness for sensitive distributions
+    log_price = log1p(price)
+  ) %>% 
+  
+  # Drop any rows that have missing values in the selected columns
+  drop_na() %>% 
+  
+  # Drop the raw amenities text column 
+  select(-amenities)
+  
+# Random Forest cannot handle factors with more than 53 levels, so we group smaller neighborhoods into an "Other" category
+opt_top_neighborhoods <- opt_LA_price %>% 
+  count(neighbourhood_cleansed, sort = TRUE) %>% 
+  slice(1:10) %>% 
+  pull(neighbourhood_cleansed) %>% 
+  as.character()
+
+opt_LA_price <- opt_LA_price %>% 
+  mutate(neighbourhood_cleansed = fct_other(neighbourhood_cleansed, keep = opt_top_neighborhoods))
+```
 
 # Market Segmentation
 
@@ -499,17 +626,34 @@ plot(1:10, wss_values, type = "b", pch = 19,
 
 ```
 
+
 ```{r}
 
 # Apply K-means clustering. Based on the elbow plot, select a k = x (adjust x to different # if appropriate)
 
-# Add the resulting cluster assignments as a new variable,so now each row belongs to one of the k (4) market segments (labeled as 1 through 4)
+# Find appropriate K value
+
+# Elbow method
+fviz_nbclust(mktseg_cluster_data_scaled_general, kmeans, method = "wss") + 
+  labs(title = "Elbow Method for Optimal k (General)")
+
+# Silhouette method
+fviz_nbclust(mktseg_cluster_data_scaled_general, kmeans, method = "silhouette") + 
+  labs(title = "Silhouette Method for Optimal k (General)")
+
+# Gap statistic
+set.seed(123)
+gap_stat_general <- clusGap(mktseg_cluster_data_scaled_general, FUN = kmeans, nstart = 25, K.max = 10, B = 50)
+fviz_gap_stat(gap_stat_general) + labs(title = "Gap Statistic for Optimal k (General)")
+
+
+# Add the resulting cluster assignments as a new variable,so now each row belongs to one of the k (8) market segments (labeled as 1 through 8)
 # Instead of assigning directly to LA_clean (which causes a row mismatch), we assign segment labels only to the dataset used for clustering
 
-kmeans_general_result <- kmeans(mktseg_cluster_data_scaled_general, centers = 4, nstart = 25)
+kmeans_general_result <- kmeans(mktseg_cluster_data_scaled_general, centers = 8, nstart = 25)
 
 fviz_cluster(kmeans_general_result, data = mktseg_cluster_data_scaled_general,
-             main = "K=4 Means Clustering on Airbnb Data")
+             main = "K=8 Means Clustering on Airbnb Data")
 
 ```
 
@@ -646,14 +790,14 @@ plot(1:10, wss_values_amenities, type = "b", pch = 19,
 ```{r}
 
 # Apply K-means clustering (adjust k as needed)
-mktseg_kmeans_result_amenities <- kmeans(mktseg_cluster_data_scaled_amenities, centers = 4, nstart = 25)
+mktseg_kmeans_result_amenities <- kmeans(mktseg_cluster_data_scaled_amenities, centers = 8, nstart = 25)
 
 fviz_cluster(mktseg_kmeans_result_amenities,
              data = mktseg_cluster_data_scaled_amenities,
-             main = "K=4 Clustering Based on Binary Amenities")
+             main = "K=8 Clustering Based on Binary Amenities")
 
 ggplot(mktseg_kmeans_result_amenities, aes(x = segment, y = avg_amenities)) +
-  geom_col(fill = "darkorange") +
+  geom_col(fill = "steelblue") +
   labs(title = "Avg Amenities by Segment", x = "Segment", y = "Average Amenity Count")
 
 
@@ -798,13 +942,13 @@ plot(1:10, wss_values_location, type = "b", pch = 19,
 
 ```{r}
 
-# K-means Clustering (K = 4)
+# K-means Clustering (K = 8)
 set.seed(123)
-mktseg_kmeans_result_location <- kmeans(mktseg_cluster_data_scaled_location, centers = 4, nstart = 25)
+mktseg_kmeans_result_location <- kmeans(mktseg_cluster_data_scaled_location, centers = 8, nstart = 25)
 
 fviz_cluster(mktseg_kmeans_result_location,
              data = mktseg_cluster_data_scaled_location,
-             main = "K=4 Clustering Using Location Proxies")
+             main = "K=8 Clustering Using Location Proxies")
 
 ```
 
@@ -872,14 +1016,3 @@ ggplot(location_pct_long, aes(x = segment, y = percentage, fill = region)) +
   scale_y_continuous(labels = scales::percent_format())
 
 ```
-
----
-
-# Conclusion
-
-## Summary of Findings
-
-## Limitations
-
-## Recommendations for Future Work
-
