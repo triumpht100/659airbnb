@@ -12,4 +12,4 @@ Draft 5 restructured code for market segmentation, and introduced further segmen
 
 Cluster config is the initial file where code related to clustering was edited before being pasted in the next draft of the full project. 
 
-Draft 6 introduces 6.1 and 6.2. At this point, the file hit the maximum 16 GB vector size limit and so the project was split. 6.1 and 6.2 also introduced several plots, structuring (for knit export), and completed the evaluation for price optimization. 
+Draft 6 introduces several plots, structuring (for knit export), an additional linear regression model, and completed the evaluation for price optimization. 
